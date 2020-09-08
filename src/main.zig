@@ -319,28 +319,6 @@ const Tarjan = struct {
                 }
             }
         }
-
-        // self.info[v] = .{.index = self.index, .lowlink = self.index, .on_stack = true};
-        // self.index += 1;
-        // self.stack.appendAssumeCapacity(v);
-
-        // for (self.graph.nodes[v].out_edges) |w| {
-        //     if (self.info[w].index == undef) {
-        //         self.strongconnect(w);
-        //         self.info[v].lowlink = std.math.min(self.info[v].lowlink, self.info[w].lowlink);
-        //     } else if (self.info[w].on_stack) {
-        //         self.info[v].lowlink = std.math.min(self.info[v].lowlink, self.info[w].index);
-        //     }
-        // }
-
-        // if (self.info[v].lowlink == self.info[v].index) {
-        //     while (true) {
-        //         const w = self.stack.pop();
-        //         self.info[w].on_stack = false;
-        //         self.udfs.unite(w, v);
-        //         if (w == v) break;
-        //     }
-        // }
     }
 };
 
