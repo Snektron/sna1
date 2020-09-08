@@ -20,6 +20,43 @@ const Graph = struct {
         exists: bool,
     };
 
+    const Prefix = struct {
+        offsets: []u32,
+        ends: []u32,
+
+        fn init(total_nodes: u32) !Prefix {
+            const offsets = try allocator.alloc(u32, total_nodes);
+            errdefer allocator.free(offsets);
+
+            const ends = try allocator.alloc(u32, total_nodes);
+            errdefer allocator.free(ends);
+
+            return Prefix{
+                .offsets = offsets,
+                .ends = ends,
+            };
+        }
+
+        fn calculate(self: *Prefix, ids: []const u32) void {
+             // Use the ends array to store the degree of each node
+            for (self.ends) |*i| i.* = 0;
+            for (ids) |id| self.ends[id] += 1;
+
+            // Calculate the offsets and ends
+            var accum: u32 = 0;
+            for (self.ends) |*end, i| {
+                self.offsets[i] = accum;
+                accum += end.*;
+                end.* = accum;
+            }
+        }
+
+        fn deinit(self: Prefix) void {
+            allocator.free(self.offsets);
+            allocator.free(self.ends);
+        }
+    };
+
     nodes: []Node,
     edges: Edges,
 
@@ -43,80 +80,37 @@ const Graph = struct {
 
         std.log.info("Calculating src count/prefix...", .{});
 
+
         // First, sort `edges.dst` by `edges.src`. To that end, first
         // calculate the prefix sum of `edges.src`.
-        const src_count = try calculateCounts(edges.src, total_nodes);
-        defer allocator.free(src_count);
-        const src_prefix = try calculatePrefix(src_count);
-        defer allocator.free(src_prefix);
+        var prefix = try Prefix.init(total_nodes);
+        prefix.calculate(edges.src);
 
-        for (src_count) |count, current_node| {
-            const offset = src_prefix[current_node];
-            nodes[current_node].out_edges = edges.dst[offset .. offset + count];
+        for (prefix.offsets) |offset, i| {
+            const end = prefix.ends[i];
+            nodes[i].out_edges = edges.dst[offset .. end];
         }
 
-        std.log.info("Performing sort on src...", .{});
+        std.log.info("Sort src...", .{});
 
         // Perform the sort
         // sort both 'src' and 'dst', this makes it possible to sort the edges completely in-place
-        for (src_count) |count, current_node| {
-            const offset = src_prefix[current_node];
-            var i: u32 = 0;
-            while (i < count) : (i += 1) {
-                const current_offset = offset + i;
-
-                var node_src = edges.src[current_offset];
-                var node_dst = edges.dst[current_offset];
-                while (node_src != current_node) {
-                    const target_offset = src_prefix[node_src];
-                    src_prefix[node_src] += 1;
-                    src_count[node_src] -= 1;
-
-                    std.mem.swap(u32, &edges.src[target_offset], &node_src);
-                    std.mem.swap(u32, &edges.dst[target_offset], &node_dst);
-                }
-
-                edges.src[current_offset] = node_src;
-                edges.dst[current_offset] = node_dst;
-            }
-        }
+        swapSort(true, prefix, edges.src, edges.dst);
 
         std.log.info("Calculating dst count/prefix...", .{});
 
         // Sort `edges.src` by `edges.dst`.
-        const dst_count = try calculateCounts(edges.dst, total_nodes);
-        defer allocator.free(dst_count);
-        const dst_prefix = try calculatePrefix(dst_count);
-
-        for (dst_count) |count, current_node| {
-            const offset = dst_prefix[current_node];
-            nodes[current_node].in_edges = edges.src[offset .. offset + count];
+        prefix.calculate(edges.dst);
+        for (prefix.offsets) |offset, i| {
+            const end = prefix.ends[i];
+            nodes[i].in_edges = edges.src[offset .. end];
         }
 
-        std.log.info("Performing sort on dst...", .{});
+        std.log.info("Sort dst...", .{});
 
         // Perform the sort
         // Note that this time, `edges.dst` isn't changed.
-        for (dst_count) |count, current_node| {
-            const offset = dst_prefix[current_node];
-            var i: u32 = 0;
-            while (i < count) : (i += 1) {
-                const current_offset = offset + i;
-
-                var node_src = edges.src[current_offset];
-                var node_dst = edges.dst[current_offset];
-                while (node_dst != current_node) {
-                    const target_offset = dst_prefix[node_dst];
-                    dst_prefix[node_dst] += 1;
-                    dst_count[node_dst] -= 1;
-
-                    std.mem.swap(u32, &edges.src[target_offset], &node_src);
-                    node_dst = edges.dst[target_offset];
-                }
-
-                edges.src[current_offset] = node_src;
-            }
-        }
+        swapSort(false, prefix, edges.dst, edges.src);
 
         std.log.debug("Graph loaded", .{});
 
@@ -132,22 +126,32 @@ const Graph = struct {
         allocator.free(self.nodes);
     }
 
-    fn calculateCounts(ids: []const u32, total_nodes: usize) ![]u32 {
-        const counts = try allocator.alloc(u32, total_nodes);
-        for (counts) |*c| c.* = 0;
-        for (ids) |id | counts[id] += 1;
-        return counts;
-    }
+    fn swapSort(comptime sort_key: bool, prefix: Prefix, keys: []u32, values: []u32) void {
+        for (prefix.offsets) |start_offset, current_key| {
+            const end = prefix.ends[current_key];
+            var offset = start_offset;
+            while (offset < end) : (offset += 1) {
+                var key = keys[offset];
+                var value = values[offset];
 
-    fn calculatePrefix(counts: []const u32) ![]u32 {
-        const p = try allocator.alloc(u32, counts.len);
-        var i: u32 = 0;
-        for (counts) |c, j| {
-            p[j] = i;
-            i += c;
+                while (key != current_key) {
+                    const target_offset = prefix.offsets[key];
+                    prefix.offsets[key] += 1;
+
+                    std.mem.swap(u32, &values[target_offset], &value);
+                    if (sort_key) {
+                        std.mem.swap(u32, &keys[target_offset], &key);
+                    } else {
+                        key = keys[target_offset];
+                    }
+                }
+
+                values[offset] = value;
+                if (sort_key) {
+                    keys[offset] = key;
+                }
+            }
         }
-
-        return p;
     }
 
     fn numNodes(self: Graph) u32 {
