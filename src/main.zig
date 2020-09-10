@@ -4,6 +4,7 @@ const degree_hist = @import("degree_hist.zig");
 const cc = @import("connected_components.zig");
 const Ufds = @import("ufds.zig").Ufds;
 const dist_hist = @import("dist_hist.zig");
+const clustering = @import("clustering.zig");
 
 pub const log_level = .debug;
 
@@ -18,9 +19,12 @@ pub fn dumpUfdsInfo(name: []const u8, ufds: *Ufds) !void {
     std.log.info(" - # nodes: {}", .{ gv.countNodes() });
     std.log.info(" - # edges: {}", .{ gv.countEdges() });
 
-    const hist = try dist_hist.approxDistHist(&gv, 100);
-    defer hist.deinit();
-    hist.dump();
+    // const hist = try dist_hist.approxDistHist(&gv, 100);
+    // defer hist.deinit();
+    // hist.dump();
+
+    var tris = clustering.countTotalTriangles(&gv);
+    std.log.info(" - # triangles: {}", .{ tris });
 }
 
 pub fn main() !void {
@@ -41,6 +45,9 @@ pub fn main() !void {
 
     std.log.info("# nodes: {}", .{ view.countNodes() });
     std.log.info("# edges: {}", .{ graph.edges.src.len });
+
+    var tris = clustering.countTotalTriangles(&view);
+    std.log.info("# triangles: {}", .{ tris });
 
     {
         var wufds = try cc.wcc(&view);

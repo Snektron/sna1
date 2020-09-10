@@ -1,7 +1,7 @@
 const GraphView = @import("graph.zig").GraphView;
 const Histogram = @import("histogram.zig").Histogram;
 
-pub fn inDegreeHist(gv: GraphView) !Histogram {
+pub fn inDegreeHist(gv: *const GraphView) !Histogram {
     var hist = Histogram.init(gv.graph.allocator);
     errdefer hist.deinit();
 
@@ -13,7 +13,7 @@ pub fn inDegreeHist(gv: GraphView) !Histogram {
     return hist;
 }
 
-pub fn outDegreeHist(gv: GraphView) !Histogram {
+pub fn outDegreeHist(gv: *const GraphView) !Histogram {
     var hist = Histogram.init(gv.graph.allocator);
     errdefer hist.deinit();
 
@@ -25,7 +25,7 @@ pub fn outDegreeHist(gv: GraphView) !Histogram {
     return hist;
 }
 
-pub fn inOutDegreeHist(gv: GraphView) !Histogram {
+pub fn inOutDegreeHist(gv: *const GraphView) !Histogram {
     var hist = Histogram.init(gv.graph.allocator);
     errdefer hist.deinit();
 
