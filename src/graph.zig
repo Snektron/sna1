@@ -126,6 +126,23 @@ pub const GraphView = struct {
         }
         return total;
     }
+
+    pub fn randomSubset(self: GraphView, samples: usize) ![]u32 {
+        const node_ids = try self.graph.allocator.alloc(u32, self.graph.nodes.len);
+
+        var i: usize = 0;
+        for (self.graph.nodes) |_, id| {
+            if (self.contains(@intCast(u32, id))) {
+                node_ids[i] = @intCast(u32, id);
+                i += 1;
+            }
+        }
+
+        const actual_samples = std.math.min(i, samples);
+        var rng = std.rand.DefaultPrng.init(@bitCast(u64, std.time.milliTimestamp()));
+        rng.random.shuffle(u32, node_ids[0 .. actual_samples]);
+        return self.graph.allocator.realloc(node_ids, actual_samples);
+    }
 };
 
 const Prefix = struct {

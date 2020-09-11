@@ -20,29 +20,13 @@ pub fn completeDistHist(gv: *const GraphView) !Histogram {
     return dist_hist.hist;
 }
 
-pub fn approxDistHist(gv: *const GraphView, samples: u32) !Histogram {
+pub fn approxDistHist(gv: *const GraphView, samples: usize) !Histogram {
     var dist_hist = try DistHist.init(gv);
     errdefer dist_hist.deinit();
 
-    const node_ids = try gv.graph.allocator.alloc(u32, gv.graph.nodes.len);
-    defer gv.graph.allocator.free(node_ids);
-
-    var i: usize = 0;
-    for (gv.graph.nodes) |_, id| {
-        if (gv.contains(@intCast(u32, id))) {
-            node_ids[i] = @intCast(u32, id);
-            i += 1;
-        }
-    }
-    const actual_samples = std.math.min(i, samples);
-    var rng = std.rand.DefaultPrng.init(0);
-    rng.random.shuffle(u32, node_ids[0 .. actual_samples]);
-
-    for (node_ids[0 .. actual_samples]) |id, j| {
-        if (j % 10 == 0) {
-            std.log.info("{}", .{ j });
-        }
-
+    const nodes = try gv.randomSubset(samples);
+    defer gv.graph.allocator.free(nodes);
+    for (nodes) |id, j| {
         try recordDistances(&dist_hist, @intCast(u32, id));
     }
 

@@ -19,9 +19,7 @@ pub fn processUfds(name: []const u8, ufds: *Ufds) !void {
     std.log.info(" - # nodes: {}", .{ gv.countNodes() });
     std.log.info(" - # edges: {}", .{ gv.countEdges() });
 
-    var t = clustering.countTotalTriangles(&gv);
-    std.log.info(" - # triangles: {}", .{ t });
-    var cc = clustering.avgClusteringCoeff(&gv);
+    var cc = try clustering.approxAvgClusteringCoeff(&gv, 10);
     std.log.info(" - # avg clustering coefficient: {d}", .{ cc });
 }
 
