@@ -18,9 +18,6 @@ pub fn processUfds(name: []const u8, ufds: *Ufds) !void {
 
     std.log.info(" - # nodes: {}", .{ gv.countNodes() });
     std.log.info(" - # edges: {}", .{ gv.countEdges() });
-
-    var cc = try clustering.approxAvgClusteringCoeff(&gv, 10);
-    std.log.info(" - # avg clustering coefficient: {d}", .{ cc });
 }
 
 pub fn main() !void {
@@ -42,15 +39,32 @@ pub fn main() !void {
     std.log.info("# nodes: {}", .{ view.countNodes() });
     std.log.info("# edges: {}", .{ graph.edges.src.len });
 
-    {
-        var wufds = try components.wcc(&view);
-        defer wufds.deinit();
-        try processUfds("wcc", &wufds);
+    var cc = try clustering.avgClusteringCoeff(&view);
+    std.log.info(" - # avg clustering coefficient: {d}", .{ cc });
+
+    var i: usize = 100;
+    while (i < 2000) : (i += 100) {
+        var acc = try clustering.approxAvgClusteringCoeff(&view, i);
+        std.log.info(" - {}: # approx avg clustering coefficient: {d}", .{ i, acc });
     }
 
-    {
-        var sufds = try components.scc(&view);
-        defer sufds.deinit();
-        try processUfds("scc", &sufds);
-    }
+    const dh = try dist_hist.approxDistHist(&view, 10);
+    defer dh.deinit();
+    dh.dump();
+
+    const dh2 = try dist_hist.completeDistHist(&view);
+    defer dh2.deinit();
+    dh2.dump();
+
+    // {
+    //     var wufds = try components.wcc(&view);
+    //     defer wufds.deinit();
+    //     try processUfds("wcc", &wufds);
+    // }
+
+    // {
+    //     var sufds = try components.scc(&view);
+    //     defer sufds.deinit();
+    //     try processUfds("scc", &sufds);
+    // }
 }

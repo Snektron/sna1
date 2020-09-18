@@ -15,16 +15,19 @@ pub fn avgClusteringCoeff(gv: *const GraphView) !f32 {
 }
 
 pub fn approxAvgClusteringCoeff(gv: *const GraphView, samples: usize) !f32 {
-    const nodes = try gv.randomSubset(samples);
+    const nodes = try gv.randomOrdering();
     defer gv.graph.allocator.free(nodes);
-    var counter = TriangleCounter.init(gv);
 
+    var counter = TriangleCounter.init(gv);
     var total: f32 = 0;
     var i: usize = 0;
-
     for (nodes) |id| {
         total += (try counter.clusteringCoeff(@intCast(u32, id))) orelse continue;
         i += 1;
+
+        if (i == samples) {
+            break;
+        }
     }
 
     return total / @intToFloat(f32, i);

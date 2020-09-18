@@ -24,10 +24,16 @@ pub fn approxDistHist(gv: *const GraphView, samples: usize) !Histogram {
     var dist_hist = try DistHist.init(gv);
     errdefer dist_hist.deinit();
 
-    const nodes = try gv.randomSubset(samples);
+    const nodes = try gv.randomOrdering();
     defer gv.graph.allocator.free(nodes);
-    for (nodes) |id, j| {
+
+    var i: usize = 0;
+    for (nodes) |id| {
         try recordDistances(&dist_hist, @intCast(u32, id));
+        i += 1;
+        if (i == samples) {
+            break;
+        }
     }
 
     dist_hist.deinitExceptHist();
