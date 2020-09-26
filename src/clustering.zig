@@ -3,8 +3,10 @@ const GraphView = @import("graph.zig").GraphView;
 const Ufds = @import("ufds.zig").Ufds;
 
 pub fn avgClusteringCoeff(gv: *const GraphView) !f32 {
-    var total: f32 = 0;
     var counter = TriangleCounter.init(gv);
+    defer counter.deinit();
+
+    var total: f32 = 0;
     var n: usize = 0;
     for (gv.graph.nodes) |node_info, id| {
         if (!gv.contains(@intCast(u32, id))) continue;
@@ -19,6 +21,8 @@ pub fn approxAvgClusteringCoeff(gv: *const GraphView, samples: usize) !f32 {
     defer gv.graph.allocator.free(nodes);
 
     var counter = TriangleCounter.init(gv);
+    defer counter.deinit();
+
     var total: f32 = 0;
     var i: usize = 0;
     for (nodes) |id| {
@@ -48,14 +52,15 @@ const TriangleCounter = struct {
         };
     }
 
-    fn deinit(self: TriangleCounter) void {
+    fn deinit(self: *TriangleCounter) void {
         self.dst2_edges.deinit();
         self.dst1_edges.deinit();
     }
 
     fn clusteringCoeff(self: *TriangleCounter, node: u32) !?f32 {
-        var triangles: usize = 0;
         const nodes = self.gv.graph.nodes;
+
+        var triangles: usize = 0;
         self.dst1_edges.clearRetainingCapacity();
 
         for (nodes[node].out_edges) |dst| {
@@ -66,8 +71,8 @@ const TriangleCounter = struct {
         }
 
         const k = self.dst1_edges.items().len;
-        if (k == 0 or k == 1) return null;
-        const tris = k * (k - 1) / 2;
+        if (k <= 1) return null;
+        const tris = k * (k - 1);
 
         for (self.dst1_edges.items()) |entry| {
             const dst1 = entry.key;
@@ -82,6 +87,8 @@ const TriangleCounter = struct {
             }
         }
 
-        return @intToFloat(f32, @divExact(triangles, 2)) / @intToFloat(f32, tris);
+        // Above loop counts every triangle twice, and considering the clustering coefficient is
+        // calculates as `2 * triangles / tris` we can omit the 2 to calculate the right coefficient.
+        return @intToFloat(f32, triangles) / @intToFloat(f32, tris);
     }
 };

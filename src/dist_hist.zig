@@ -7,10 +7,6 @@ pub fn completeDistHist(gv: *const GraphView) !Histogram {
     errdefer dist_hist.deinit();
 
     for (gv.graph.nodes) |_, id| {
-        if (id % 1000 == 0) {
-            std.log.debug("{}", .{ id });
-        }
-
         if (gv.contains(@intCast(u32, id))) {
             try recordDistances(&dist_hist, @intCast(u32, id));
         }

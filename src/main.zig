@@ -8,16 +8,18 @@ const clustering = @import("clustering.zig");
 
 pub const log_level = .debug;
 
-pub fn processUfds(name: []const u8, ufds: *Ufds) !void {
+pub fn processUfds(name: []const u8, ufds: *Ufds) !g.GraphView {
     std.log.info("{}:", .{ name });
     std.log.info(" - # components: {}", .{ ufds.num_comps });
 
     const largest = ufds.findLargestComponent();
     const gv = try ufds.extract(largest);
-    defer gv.deinit();
+    errdefer gv.deinit();
 
     std.log.info(" - # nodes: {}", .{ gv.countNodes() });
     std.log.info(" - # edges: {}", .{ gv.countEdges() });
+
+    return gv;
 }
 
 pub fn main() !void {
@@ -39,32 +41,38 @@ pub fn main() !void {
     std.log.info("# nodes: {}", .{ view.countNodes() });
     std.log.info("# edges: {}", .{ graph.edges.src.len });
 
-    var cc = try clustering.avgClusteringCoeff(&view);
-    std.log.info(" - # avg clustering coefficient: {d}", .{ cc });
+    const in = try degree_hist.inDegreeHist(&view);
+    defer in.deinit();
+    std.log.info("In degree histogram:", .{});
+    in.dump();
 
-    var i: usize = 100;
-    while (i < 2000) : (i += 100) {
-        var acc = try clustering.approxAvgClusteringCoeff(&view, i);
-        std.log.info(" - {}: # approx avg clustering coefficient: {d}", .{ i, acc });
+    const out = try degree_hist.outDegreeHist(&view);
+    defer out.deinit();
+    std.log.info("Out degree histogram:", .{});
+    out.dump();
+
+    {
+        var wufds = try components.wcc(&view);
+        defer wufds.deinit();
+
+        const wgv = try processUfds("wcc", &wufds);
+        defer wgv.deinit();
+
+        const cc = try clustering.avgClusteringCoeff(&wgv);
+        // const cc = try clustering.approxAvgClusteringCoeff(&view, 25000);
+        std.log.info(" - avg clustering coefficient: {d}", .{ cc });
+
+        const dh = try dist_hist.completeDistHist(&view);
+        // const dh = try dist_hist.approxDistHist(&view, 100);
+        defer dh.deinit();
+        dh.dump();
     }
 
-    const dh = try dist_hist.approxDistHist(&view, 10);
-    defer dh.deinit();
-    dh.dump();
+    {
+        var sufds = try components.scc(&view);
+        defer sufds.deinit();
 
-    const dh2 = try dist_hist.completeDistHist(&view);
-    defer dh2.deinit();
-    dh2.dump();
-
-    // {
-    //     var wufds = try components.wcc(&view);
-    //     defer wufds.deinit();
-    //     try processUfds("wcc", &wufds);
-    // }
-
-    // {
-    //     var sufds = try components.scc(&view);
-    //     defer sufds.deinit();
-    //     try processUfds("scc", &sufds);
-    // }
+        const sgv = try processUfds("scc", &sufds);
+        defer sgv.deinit();
+    }
 }
